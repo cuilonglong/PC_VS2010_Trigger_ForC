@@ -3,7 +3,11 @@
 //
 
 #pragma once
+#include "afxwin.h"
 
+#define InfoPath TEXT(".//setting.ini")//配置文件路径
+#define FileCount TEXT("FileCount")//配置文件有几个机型[FileCount]
+#define Count TEXT("Count")//配置文件有几个机型Count = *
 
 // CTriggerExplainDlg 对话框
 class CTriggerExplainDlg : public CDialogEx
@@ -36,4 +40,8 @@ public:
 	afx_msg void OnBnClickedOk();
 	afx_msg void OnChar(UINT nChar, UINT nRepCnt, UINT nFlags);
 	afx_msg void OnEnChangeCipherEdit();
+	int IntInfoFile(void);
+	int InitCombo(int Result);
+
+	CComboBox m_combo;
 };

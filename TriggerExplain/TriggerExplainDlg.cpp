@@ -58,6 +58,7 @@ CTriggerExplainDlg::CTriggerExplainDlg(CWnd* pParent /*=NULL*/)
 void CTriggerExplainDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_COMBO, m_combo);
 }
 
 BEGIN_MESSAGE_MAP(CTriggerExplainDlg, CDialogEx)
@@ -102,6 +103,14 @@ BOOL CTriggerExplainDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	int Result = GetPrivateProfileInt(FileCount,Count,0,InfoPath);
+	if(Result == 0)
+	{
+		Result = 3;
+		IntInfoFile();
+		::MessageBox( NULL,_T("欢迎使用触发解析工具！") , TEXT("提示") ,MB_OK);
+	}
+	InitCombo(Result);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -230,17 +239,31 @@ in
 out
 	info：需要显示的字符串
 
-bit31	bit30	bit29	bit28	bit27	bit26	bit25	bit24     bit23-bit16	bit15-bit0
-MMK丢失	高温	低温	高压	低压	高频	低频	小电池     预留	    	  mesh相关
+bit31	bit30	bit29	bit28	bit27	bit26	bit25	bit24   bit23  bit22-bit16	bit15-bit0
+MMK丢失	高温	低温	高压	低压	高频	低频	预留    小电池    预留	    mesh相关
 */
 int CTriggerExplainDlg::ExplainTriggerInfo(CString data,CString& info)
 {
 	char i;
-	CString prompt;
+	int nSel;
+	CString prompt,TypeNum,strType,strType1;
 	unsigned int trigger;// = _ttoi(data);
 	swscanf_s(data,_T("%08x"),&trigger);
 
-	if(((trigger >> 24)&0x00000001) != 0)
+	nSel = m_combo.GetCurSel();//获取combo列表
+	TypeNum.Format(_T("Type%d"),nSel);//机器号
+	for(i = 0;i < 32;i++)
+	{
+		strType.Format(_T("Bit%d"),i);//
+		::GetPrivateProfileString(TypeNum,strType,_T("NULL"), strType1.GetBuffer(MAX_PATH),MAX_PATH,InfoPath);
+		if(((trigger >> i)&0x00000001) != 0)
+		{
+			info += strType1.GetBuffer(0);
+			info += "\r\n";
+		}
+	}
+#if 0
+	if(((trigger >> 23)&0x00000001) != 0)
 	{
 		info += "小电池触发\r\n";
 	}
@@ -252,10 +275,10 @@ int CTriggerExplainDlg::ExplainTriggerInfo(CString data,CString& info)
 			info += prompt;
 		}
 	}
-	/*bit16~bit23预留*/
-	if(((trigger >> 23)&0x00000001) != 0)
+	/*bit24、bit16~bit22预留*/
+	if((((trigger >> 16)&0x0000007F) != 0)||(((trigger >> 24)&0x00000001) != 0))
 	{
-		info += "bit16~bit23预留\r\n";
+		info += "bit24、bit16~bit22预留\r\n";
 	}
 	if(((trigger >> 25)&0x00000001) != 0)
 	{
@@ -285,6 +308,7 @@ int CTriggerExplainDlg::ExplainTriggerInfo(CString data,CString& info)
 	{
 		info += "MMK丢失\r\n";
 	}
+#endif
 	return 0;
 }
 
@@ -338,3 +362,130 @@ void CTriggerExplainDlg::OnEnChangeCipherEdit()
 	SetDlgItemText(IDC_SHOWLEN_STATIC,str);	
 	// TODO:  在此添加控件通知处理程序代码
 }
+
+
+/*
+初始化配置文件
+默认只有G21、K205s和K102s三个
+
+K102s、K205s
+bit31	bit30	bit29	bit28	bit27	bit26	bit25	bit24   bit23  bit22-bit16	bit15-bit0
+MMK丢失	高温	低温	高压	低压	高频	低频	预留    小电池    预留	    mesh相关
+
+G21
+bit31	 bit23    bit9-bit8	       bit7-bit0  other
+MMK丢失	 小电池  动态静态总标志	    mesh相关   预留
+*/
+int CTriggerExplainDlg::IntInfoFile(void)
+{
+	int nCount=3,i,j;//nCount初始化的机器个数
+	CString strTemp,strTemp1,strType;
+	CString type[3] = {_T("K102s"),_T("K205s"),_T("G21")};
+
+	for(j = 0; j < 2 ;j++)//初始化K205s、K102s
+	{
+		strType.Format(_T("Type%d"),j);//机器号
+		::WritePrivateProfileString(strType,_T("machine model"),type[j],InfoPath);
+		for(i = 0;i < 32 ;i++)
+		{
+			if(i < 16)
+			{
+				strTemp.Format(_T("SD%d触发"),i);
+			}
+			else if(((i >= 16)&&(i <= 22))||(i == 24))
+			{
+				strTemp = "bit16~bit22、bit24预留";
+			}
+			else if(i == 23)
+			{
+				strTemp = "小电池触发";
+			}
+			else if(i == 25)
+			{
+				strTemp = "低频触发";
+			}
+			else if(i == 26)
+			{
+				strTemp = "高频触发";
+			}
+			else if(i == 27)
+			{
+				strTemp = "低压触发";
+			}
+			else if(i == 28)
+			{
+				strTemp = "高压触发";
+			}
+			else if(i == 29)
+			{
+				strTemp = "低温触发";
+			}
+			else if(i == 30)
+			{
+				strTemp = "高温触发";
+			}
+			else if(i == 31)
+			{
+				strTemp = "MMK丢失";
+			}
+			strTemp1.Format(_T("Bit%d"),i);//32字节
+			::WritePrivateProfileString(strType,strTemp1,strTemp,InfoPath);
+		}
+	}
+
+	strType.Format(_T("Type%d"),j);//G21机器号
+	::WritePrivateProfileString(strType,_T("machine model"),type[j],InfoPath);
+	for(i = 0;i < 32 ;i++)
+	{
+		if(i < 8)
+		{
+			strTemp.Format(_T("SD%d触发"),i);
+		}
+		else if(i == 8)
+		{
+			strTemp = "有静态触发";
+		}
+		else if(i == 9)
+		{
+			strTemp = "有动态触发";
+		}
+		else if(i == 23)
+		{
+			strTemp = "小电池触发";
+		}
+		else if(i == 31)
+		{
+			strTemp = "MMK丢失";
+		}
+		else
+		{
+			strTemp = "未定义";
+		}
+		strTemp1.Format(_T("Bit%d"),i);//32字节
+		::WritePrivateProfileString(strType,strTemp1,strTemp,InfoPath);
+	}
+
+	strTemp.Format(_T("%d"),nCount);//32字节
+	::WritePrivateProfileString(FileCount,Count,strTemp,InfoPath);
+	return 0;
+}
+
+/*
+初始化combo控件
+*/
+int CTriggerExplainDlg::InitCombo(int Result)
+{
+	int i;
+	CString TypeNum,strType;
+
+	for(i = 0;i < Result;i++)
+	{
+		TypeNum.Format(_T("Type%d"),i);//机器号
+		::GetPrivateProfileString(TypeNum,_T("machine model"),_T("NULL"), strType.GetBuffer(MAX_PATH),MAX_PATH,InfoPath);
+		m_combo.AddString(strType);
+	}
+
+	m_combo.SetCurSel(0);// 默认选择第一项   
+	return 0;
+}
+
