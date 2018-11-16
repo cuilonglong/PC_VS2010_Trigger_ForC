@@ -106,8 +106,7 @@ BOOL CTriggerExplainDlg::OnInitDialog()
 	int Result = GetPrivateProfileInt(FileCount,Count,0,InfoPath);
 	if(Result == 0)
 	{
-		Result = 3;
-		IntInfoFile();
+		Result = IntInfoFile();
 		::MessageBox( NULL,_T("欢迎使用触发解析工具！") , TEXT("提示") ,MB_OK);
 	}
 	InitCombo(Result);
@@ -375,12 +374,15 @@ MMK丢失	高温	低温	高压	低压	高频	低频	预留    小电池    预�
 G21
 bit31	 bit23    bit9-bit8	       bit7-bit0  other
 MMK丢失	 小电池  动态静态总标志	    mesh相关   预留
+
+retun： 为初始化的机器个数
 */
+#define COUNT 4
 int CTriggerExplainDlg::IntInfoFile(void)
 {
-	int nCount=3,i,j;//nCount初始化的机器个数
+	int nCount=COUNT,i,j;//nCount初始化的机器个数
 	CString strTemp,strTemp1,strType;
-	CString type[3] = {_T("K102s"),_T("K205s"),_T("G21")};
+	CString type[COUNT] = {_T("K102s"),_T("K205s"),_T("G21"),_T("K102")};
 
 	for(j = 0; j < 2 ;j++)//初始化K205s、K102s
 	{
@@ -465,9 +467,34 @@ int CTriggerExplainDlg::IntInfoFile(void)
 		::WritePrivateProfileString(strType,strTemp1,strTemp,InfoPath);
 	}
 
+	strType.Format(_T("Type%d"),++j);//K102机器号
+	::WritePrivateProfileString(strType,_T("machine model"),type[j],InfoPath);
+	for(i = 0;i < 32 ;i++)
+	{
+		if(i < 6)
+		{
+			strTemp.Format(_T("SD%d触发"),i);
+		}
+		else if(i == 6)
+		{
+			strTemp = "小电池触发";
+		}
+		else if(i == 15)
+		{
+			strTemp = "MMK丢失";
+		}
+		else
+		{
+			strTemp = "未定义";
+		}
+		strTemp1.Format(_T("Bit%d"),i);//32字节
+		::WritePrivateProfileString(strType,strTemp1,strTemp,InfoPath);
+	}
+
 	strTemp.Format(_T("%d"),nCount);//32字节
 	::WritePrivateProfileString(FileCount,Count,strTemp,InfoPath);
-	return 0;
+
+	return nCount;
 }
 
 /*
